@@ -1,69 +1,95 @@
+# IDE / 編輯器相關
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
 .DS_Store
-/node_modules
-Taipei-City-Dashboard-FE/dist
-Taipei-City-Dashboard-BE/TaipeiCityDashboardBE
+Thumbs.db
 
-# Log files
+# 前端（Node.js/Vue）相關
+node_modules/
+dist/
+coverage/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Editor directories and files
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-node_modules
-
-# Firebase
-/.firebase
-.firebase
-.firebaserc
-firebase.json
-*.cache
-
-dist.tar.gz
-*.sh
-
-# Binaries for programs and plugins
+# 後端（Go）相關
+bin/
+vendor/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-
-# .env files except for template
-docker/.env
-Taipei-City-Dashboard-FE/.env
-Taipei-City-Dashboard-FE/.env.development
-Taipei-City-Dashboard-FE/.env.production
-Taipei-City-Dashboard-FE/.env.test
-
-# docker-compose
-# db data
-docker/db-data
-# nginx ssl
-docker/nginx/ssl
-
-
-# data end
-Taipei-City-Dashboard-DE/local_env/volume_data
-Taipei-City-Dashboard-DE/logs
-Taipei-City-Dashboard-DE/data
-**/__pycache__/
+# 資料工程（Python）相關
+__pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+
+# 容器/部署相關
+.docker/
+docker-compose.override.yml
+.dockerignore
+
+# 資料庫相關
+*.db
+*.sqlite3
+*.log
+dump.rdb
+
+# 日誌
+logs/
+*.log
+npm-debug.log*
+
+# 測試覆蓋率報告
+coverage/
+.nyc_output/
+
+# 本地配置
+.env.local
+.env.development
+.env.test
+.env.production
+
+# 依賴鎖定文件例外（這些應該被版本控制）
+!package-lock.json
+!yarn.lock
+!go.sum
+!poetry.lock
+
+# 特定於專案的例外
+# db-sample-data/ # 如果樣本數據需要被版本控制，則不要忽略

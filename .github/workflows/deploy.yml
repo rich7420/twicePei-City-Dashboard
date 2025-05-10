@@ -1,0 +1,238 @@
+name: 台北市儀表板 CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  DOCKER_IMAGE_PREFIX: ${{ github.repository }}
+  VITE_APP_TITLE: "臺北市儀表板"
+  VITE_MAPBOXTILE: "mapbox://styles/mapbox/streets-v11"
+  
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [frontend, backend, dataengine]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      if: matrix.component == 'frontend'
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+        cache-dependency-path: './Taipei-City-Dashboard-FE/package-lock.json'
+    
+    - name: Test Frontend
+      if: matrix.component == 'frontend'
+      working-directory: ./Taipei-City-Dashboard-FE
+      run: |
+        npm ci
+        npm run lint
+        
+    - name: Set up Go
+      if: matrix.component == 'backend'
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21.x'
+    
+    - name: Test Backend
+      if: matrix.component == 'backend'
+      working-directory: ./Taipei-City-Dashboard-BE
+      run: |
+        go mod download
+        go vet ./...
+        if [ -d "tests" ]; then
+          go test ./tests/...
+        fi
+    
+    - name: Set up Python
+      if: matrix.component == 'dataengine'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Test Data Engine
+      if: matrix.component == 'dataengine'
+      working-directory: ./Taipei-City-Dashboard-DE
+      run: |
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        else
+          pip install -r local_env/requirements.txt
+        fi
+        if [ -d "tests" ]; then
+          pytest tests/
+        fi
+
+  build-images:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Generate Version
+      id: version
+      run: |
+        GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        VERSION="${GIT_TAG}-${COMMIT_SHA}"
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+    
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./Taipei-City-Dashboard-FE
+        push: true
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/frontend:${{ steps.version.outputs.version }},${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/frontend:latest
+        build-args: |
+          NODE_ENV=production
+          VITE_APP_VERSION=${{ steps.version.outputs.version }}
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          VITE_MAPBOXTOKEN=${{ secrets.MAPBOX_TOKEN }}
+          VITE_TAIPEIPASS_URL=${{ secrets.TAIPEIPASS_URL }}
+          VITE_TAIPEIPASS_CLIENT_ID=${{ secrets.TAIPEIPASS_CLIENT_ID }}
+          VITE_TAIPEIPASS_SCOPE=${{ secrets.TAIPEIPASS_SCOPE }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./Taipei-City-Dashboard-BE
+        push: true
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/backend:${{ steps.version.outputs.version }},${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and Push Data Engine Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./Taipei-City-Dashboard-DE/local_env
+        push: true
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/dataengine:${{ steps.version.outputs.version }},${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/dataengine:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Generate .env file
+      run: |
+        cat > .env << EOF
+        NODE_ENV=production
+        GIN_MODE=release
+        GIN_DOMAIN=${{ secrets.SERVER_HOST }}
+        GIN_PORT=8080
+        VITE_API_URL=${{ secrets.VITE_API_URL }}
+        VITE_APP_TITLE=臺北市儀表板
+        VITE_APP_VERSION=${{ env.VERSION }}
+        VITE_MAPBOXTOKEN=${{ secrets.MAPBOX_TOKEN }}
+        VITE_MAPBOXTILE=${{ env.VITE_MAPBOXTILE }}
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        ISSO_CLIENT_ID=${{ secrets.TAIPEIPASS_CLIENT_ID }}
+        ISSO_CLIENT_SECRET=${{ secrets.TAIPEIPASS_CLIENT_SECRET }}
+        DB_DASHBOARD_HOST=postgres-data
+        DB_DASHBOARD_USER=${{ secrets.DB_USER }}
+        DB_DASHBOARD_PASSWORD=${{ secrets.DB_PASSWORD }}
+        DB_DASHBOARD_DBNAME=taipei_city_dashboard
+        DB_DASHBOARD_PORT=5432
+        DB_MANAGER_HOST=postgres-manager
+        DB_MANAGER_USER=${{ secrets.DB_USER }}
+        DB_MANAGER_PASSWORD=${{ secrets.DB_PASSWORD }}
+        DB_MANAGER_DBNAME=taipei_city_dashboard_manager
+        DB_MANAGER_PORT=5432
+        REDIS_HOST=redis
+        REDIS_PORT=6379
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        REDIS_DB=0
+        EOF
+    
+    - name: Configure SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Setup Deployment Directory
+      run: |
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          mkdir -p /opt/taipei-city-dashboard
+          mkdir -p /opt/taipei-city-dashboard/nginx/conf.d
+          mkdir -p /opt/taipei-city-dashboard/nginx/ssl
+        '
+    
+    - name: Copy Configuration Files
+      run: |
+        scp docker/docker-compose.yaml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/taipei-city-dashboard/
+        scp -r docker/nginx/conf.d/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/taipei-city-dashboard/nginx/conf.d/
+        scp .env ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/taipei-city-dashboard/
+    
+    - name: Deploy Database
+      run: |
+        scp docker/docker-compose-db.yaml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/taipei-city-dashboard/
+        scp db-sample-data/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/taipei-city-dashboard/
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          cd /opt/taipei-city-dashboard
+          docker network create --driver=bridge --subnet=192.168.128.0/24 --gateway=192.168.128.1 br_dashboard || true
+          docker-compose -f docker-compose-db.yaml up -d
+          
+          # Initialize database if needed
+          sleep 10 # Wait for database to start
+          if [ ! -f "/opt/taipei-city-dashboard/.db_initialized" ]; then
+            docker exec -i postgres-data psql -U ${{ secrets.DB_USER }} taipei_city_dashboard < /opt/taipei-city-dashboard/dashboard-demo.sql
+            docker exec -i postgres-manager psql -U ${{ secrets.DB_USER }} taipei_city_dashboard_manager < /opt/taipei-city-dashboard/dashboardmanager-demo.sql
+            touch /opt/taipei-city-dashboard/.db_initialized
+          fi
+        '
+    
+    - name: Deploy Services
+      run: |
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          cd /opt/taipei-city-dashboard
+          
+          # Update docker-compose to use GitHub container registry images
+          sed -i "s|image: node:\${NODE_IMAGE_TAG:-latest}|image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/frontend:latest|g" docker-compose.yaml
+          sed -i "s|image: golang:\${GOLANG_IMAGE_TAG:-latest}|image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/backend:latest|g" docker-compose.yaml
+          
+          # Pull the latest images
+          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/frontend:latest
+          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/backend:latest
+          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/dataengine:latest
+          
+          # Start services
+          docker-compose up -d
+        '
+    
+    - name: Verify Deployment
+      run: |
+        ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          cd /opt/taipei-city-dashboard
+          docker-compose ps
+        '
