@@ -22,7 +22,7 @@ jobs:
         port: ${{ secrets.SSH_PORT || '22' }}
         script: |
           echo "[1/6] 切換至專案資料夾"
-          cd /home/${{ secrets.SSH_USER }}/Taipei-City-Dashboard/docker
+          cd /home/${{ secrets.SSH_USER }}/twicePei-City-Dashboard/docker
 
           echo "[2/6] 拉取 Release Tag 版本"
           git fetch --all --tags
