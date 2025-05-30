@@ -1,0 +1,41 @@
+name: Deploy on Tag Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Deploy to Debian 12 Server via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: SSH to deploy
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT || '22' }}
+        script: |
+          echo "[1/6] 切換至專案資料夾"
+          cd /home/${{ secrets.SSH_USER }}/Taipei-City-Dashboard/docker
+
+          echo "[2/6] 拉取 Release Tag 版本"
+          git fetch --all --tags
+          git checkout ${{ github.event.release.tag_name }}
+
+          echo "[3/6] 重建 DB、Redis 等服務"
+          docker compose -f docker-compose-db.yaml up -d --build --force-recreate
+
+          echo "[4/6] 等待資料庫啟動完成"
+          sleep 15
+
+          # echo "[5/6] 執行初始化流程（DB migration, npm install 等）"
+          # docker compose -f docker-compose-init.yaml up --build --abort-on-container-exit
+
+          echo "[6/6] 啟動前後端與 NGINX（重新建構並取代原有容器）"
+          docker compose -f docker-compose.yaml up -d --build --force-recreate
