@@ -1,7 +1,13 @@
 <!-- Running Fox Animation Component -->
 <template>
   <div class="fox-container">
-    <div class="fox" :style="{ left: foxPosition + 'px' }" :class="{ 'fox-reverse': isReverse }">
+    <div 
+      class="fox" 
+      :style="{ left: foxPosition + 'px' }" 
+      :class="{ 'fox-reverse': isReverse, 'fox-paused': isPaused }"
+      @mouseenter="pauseFox"
+      @mouseleave="resumeFox"
+    >
 			<img src="./image.png" alt="Running Fox" />
     </div>
   </div>
@@ -12,36 +18,56 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 const isReverse = ref(false);
 const foxPosition = ref(0);
-const foxSpeed = ref(3); // 降低移動速度從3改為1.5
-const foxSize = 40; // SVG的寬度
+const foxSpeed = ref(3);
+const foxSize = 40;
+const isPaused = ref(false);
 let animationFrame;
+let isAnimating = false;
+
+const pauseFox = () => {
+  isPaused.value = true;
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    isAnimating = false;
+  }
+};
+
+const resumeFox = () => {
+  isPaused.value = false;
+  if (!isAnimating) {
+    moveFox();
+  }
+};
+
+const moveFox = () => {
+  if (isPaused.value) return;
+  
+  isAnimating = true;
+  const nextPosition = foxPosition.value + foxSpeed.value;
+  
+  // 檢查邊界碰撞
+  if (nextPosition <= 0) {
+    foxPosition.value = 0;
+    foxSpeed.value = Math.abs(foxSpeed.value); // 向右
+    isReverse.value = false;
+  } else if (nextPosition >= window.innerWidth - foxSize) {
+    foxPosition.value = window.innerWidth - foxSize;
+    foxSpeed.value = -Math.abs(foxSpeed.value); // 向左
+    isReverse.value = true;
+  } else {
+    foxPosition.value = nextPosition;
+  }
+  
+  animationFrame = requestAnimationFrame(moveFox);
+};
 
 const startFoxAnimation = () => {
   // 隨機決定狐狸的初始方向和位置
   isReverse.value = Math.random() > 0.5;
   foxPosition.value = isReverse.value ? window.innerWidth - foxSize : 0;
-  foxSpeed.value = isReverse.value ? -3.0 : 3.0; // 降低移動速度
+  foxSpeed.value = isReverse.value ? -3.0 : 3.0;
   
   // 開始移動動畫
-  const moveFox = () => {
-    const nextPosition = foxPosition.value + foxSpeed.value;
-    
-    // 檢查邊界碰撞
-    if (nextPosition <= 0) {
-      foxPosition.value = 0;
-      foxSpeed.value = Math.abs(foxSpeed.value); // 向右
-      isReverse.value = false;
-    } else if (nextPosition >= window.innerWidth - foxSize) {
-      foxPosition.value = window.innerWidth - foxSize;
-      foxSpeed.value = -Math.abs(foxSpeed.value); // 向左
-      isReverse.value = true;
-    } else {
-      foxPosition.value = nextPosition;
-    }
-    
-    animationFrame = requestAnimationFrame(moveFox);
-  };
-  
   moveFox();
 };
 
@@ -69,12 +95,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .fox-container {
   position: fixed;
-  top: 15px; /* 在navbar中間位置 */
+  top: 15px;
   left: 0;
   width: 100vw;
   height: 30px;
-  pointer-events: none;
-  z-index: 1000; /* 確保在navbar之上但不會太高 */
+  /* 移除 pointer-events: none 讓滑鼠事件可以觸發 */
+  z-index: 1000;
   overflow: hidden;
 }
 
@@ -82,8 +108,9 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 0;
   filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
-  transition: transform 0.1s ease-out;
+  transition: transform 0.3s ease;
   animation: bounce 1s ease-in-out infinite alternate;
+  cursor: pointer;
 }
 
 .fox img {
@@ -93,6 +120,15 @@ onBeforeUnmount(() => {
 
 .fox-reverse {
   transform: scaleX(-1);
+}
+
+.fox-paused {
+  animation-play-state: paused;
+  transform: scale(1.2);
+}
+
+.fox-reverse.fox-paused {
+  transform: scale(1.2) scaleX(-1);
 }
 
 /* 輕微的上下彈跳動畫 */
@@ -120,20 +156,13 @@ onBeforeUnmount(() => {
 
 /* 在小屏幕設備上調整狐狸大小 */
 @media (max-width: 768px) {
-  .fox svg {
-    width: 30px;
-    height: 30px;
+  .fox img {
+    width: 25px;
+    height: 25px;
   }
   
   .fox-container {
-    top: 20px; /* 手機版navbar可能高度不同 */
+    top: 20px;
   }
-}
-
-/* 當用戶懸停時狐狸會暫停並放大 */
-.fox:hover {
-  animation-play-state: paused;
-  transform: scale(1.3) !important;
-  transition: transform 0.3s ease;
 }
 </style>
