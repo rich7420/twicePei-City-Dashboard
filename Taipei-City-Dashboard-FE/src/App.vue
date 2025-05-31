@@ -24,6 +24,7 @@ import NotificationBar from "./components/dialogs/NotificationBar.vue";
 import InitialWarning from "./components/dialogs/InitialWarning.vue";
 import ComponentSideBar from "./components/utilities/bars/ComponentSideBar.vue";
 import LogIn from "./components/dialogs/LogIn.vue";
+import RunningFox from "./components/utilities/RunningFox.vue";
 
 const authStore = useAuthStore();
 const dialogStore = useDialogStore();
@@ -178,6 +179,8 @@ onBeforeUnmount(() => {
     </div>
     <InitialWarning />
     <LogIn />
+    <!-- 可愛的狐狸動畫 -->
+    <RunningFox />
     <div
       v-if="
         ['dashboard', 'mapview'].includes(authStore.currentPath) &&
