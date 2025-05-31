@@ -12,6 +12,7 @@ import { useDialogStore } from "../../../store/dialogStore";
 
 import UserSettings from "../../dialogs/UserSettings.vue";
 import ContributorsList from "../../dialogs/ContributorsList.vue";
+import GlobalSearch from "../miscellaneous/GlobalSearch.vue";
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -75,6 +76,9 @@ const linkQuery = computed(() => {
       </router-link>
     </div>
     <div class="navbar-user">
+      <!-- 全局搜尋組件 -->
+      <GlobalSearch v-if="!(authStore.isMobileDevice && authStore.isNarrowDevice)" />
+      
       <button
         v-if="!(authStore.isMobileDevice && authStore.isNarrowDevice)"
         class="hide-if-mobile"

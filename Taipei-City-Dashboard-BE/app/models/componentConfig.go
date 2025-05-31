@@ -121,12 +121,15 @@ func GetAllComponents(city string, pageSize int, pageNum int, sort string, order
 	if city != ""{
 		tempDB = tempDB.Where("query_charts.city = ?", city)
 	}
-
 	// Search the components
-	if searchByIndex != "" {
+	if searchByIndex != "" && searchByName != "" {
+		// If both search parameters are provided, use OR logic
+		tempDB = tempDB.Where("components.index LIKE ? OR components.name LIKE ?", "%"+searchByIndex+"%", "%"+searchByName+"%")
+	} else if searchByIndex != "" {
+		// Only search by index
 		tempDB = tempDB.Where("components.index LIKE ?", "%"+searchByIndex+"%")
-	}
-	if searchByName != "" {
+	} else if searchByName != "" {
+		// Only search by name
 		tempDB = tempDB.Where("components.name LIKE ?", "%"+searchByName+"%")
 	}
 
