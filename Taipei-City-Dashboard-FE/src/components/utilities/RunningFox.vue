@@ -100,7 +100,7 @@ onBeforeUnmount(() => {
   width: 100vw;
   height: 30px;
   /* 移除 pointer-events: none 讓滑鼠事件可以觸發 */
-  z-index: 1000;
+  z-index: 1; /* 調整到最低層 */
   overflow: hidden;
 }
 

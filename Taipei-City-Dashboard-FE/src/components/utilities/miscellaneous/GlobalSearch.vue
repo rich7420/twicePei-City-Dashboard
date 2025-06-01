@@ -380,6 +380,7 @@ onUnmounted(() => {
   font-size: var(--font-m);
   cursor: pointer;
   transition: all 0.2s ease;
+  z-index: 10;
 
   &:hover {
     background-color: var(--color-border);

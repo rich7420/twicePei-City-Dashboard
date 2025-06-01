@@ -214,6 +214,7 @@ const linkQuery = computed(() => {
 			margin-left: var(--font-s);
 			transition: opacity 0.2s, border-bottom 0.2s;
 			border-bottom: solid 3px transparent;
+			z-index: 10;
 
 			&:hover {
 				opacity: 0.8;
@@ -223,6 +224,7 @@ const linkQuery = computed(() => {
 		.router-link-active {
 			border-bottom: solid 3px var(--color-highlight);
 			color: var(--color-highlight);
+			z-index: 10;
 
 			&:hover {
 				opacity: 1;
@@ -250,6 +252,7 @@ const linkQuery = computed(() => {
 			border-radius: 4px;
 			font-size: var(--font-m);
 			transition: background-color 0.25s;
+			z-index: 10;
 		}
 
 		span {
